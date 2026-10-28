@@ -2,33 +2,43 @@
 
 **Exact syllabus title:** To Connect Flutter UI with firebase database.
 
-## Aim and theory
+## Run
 
-Validated add/read/delete, persistent local demo, explicitly configured Cloud Firestore mode, live query subscription, loading states, timeouts and error messages.
-
-Flutter composes widgets to describe the UI. StatefulWidget and setState rebuild the UI when input changes; the relevant layout, input, navigation or storage API is demonstrated in `lib/main.dart`.
-
-## Run independently
-
-Open **this folder**, not the repository root, in VS Code or Android Studio.
+This project is configured for **madlab-f5bad**. No Google account password, service-account file or extra dart defines are required.
 
 ```sh
 flutter pub get
 flutter run -d chrome
-# Android: start an emulator or connect a USB-debugging device
-flutter devices
+# Or connect an Android device/emulator:
 flutter run -d <android-device-id>
 ```
 
-In Codespaces use `flutter run -d web-server --web-hostname=0.0.0.0 --web-port=8080`, then open forwarded port 8080.
+The application automatically connects, signs in anonymously and opens your own student records. [Live web app](https://madlab-f5bad.web.app) | [Firebase console](https://console.firebase.google.com/project/madlab-f5bad/overview).
+
+All Flutter application code and platform-specific public Firebase options are in [lib/main.dart](lib/main.dart). Both web and Android apps are registered with Firebase; the Android package is `com.shushant.mad_lab`. Explicit FirebaseOptions initialize the native app, so this example does not require generated `firebase_options.dart` or the Google Services Gradle plugin.
 
 ## Implementation
 
-All experiment application logic is in [lib/main.dart](lib/main.dart). Android and web folders are the official Flutter scaffold, with shared dependencies preconfigured. The same `main.dart` can be copied into any other experiment folder here.
+- Firebase Authentication creates a persistent anonymous identity on this browser/device.
+- Firestore stores records at `users/{uid}/students/{studentId}`.
+- The UI validates name/email, creates records with server timestamps, streams live updates, edits existing records and confirms deletion.
+- Rules allow only the authenticated owner to read/write their records. They validate field names, types, lengths, email format and timestamps. Creation timestamps cannot be changed.
+- Loading states disable duplicate actions. Errors remain visible and failed saves preserve the input.
+- **Switch to local demo** uses separate shared_preferences records; **Connect Firebase** returns to cloud mode. Connecting never uploads local records automatically.
 
-Uses real firebase_core/cloud_firestore, as in the PDF. Local demo is clearly labeled and is not Firebase. Local/cloud data are separate and local records are never automatically uploaded.
+Anonymous identity is convenient for a self-contained lab. It is tied to the browser/device, and clearing app data loses access to it. It does not provide cross-device sign-in, student roles, administrator access or durable account recovery. Keep important production records behind a recoverable account provider.
 
-## Verify
+## Firebase resources
+
+Project: `madlab-f5bad` (display name MadLab), Spark plan.
+Database: `(default)`, Standard edition, native Firestore, `asia-south1` (Mumbai).
+Authentication provider: Anonymous.
+Hosting: `madlab-f5bad.web.app`.
+Cloud records are private to their anonymous owner; the web interface itself is publicly reachable.
+
+Firebase client API keys and app IDs identify the app and are intentionally included in client code. They are not administrator credentials. Security depends on Authentication and [Firestore rules](../firebase/firestore.rules), not on hiding the client configuration. Google passwords, OAuth tokens, service-account private keys and signing keys must never be added to the repository.
+
+## Validate
 
 ```sh
 flutter analyze
@@ -36,20 +46,24 @@ flutter test
 flutter build web --release
 ```
 
-Manual acceptance: Add and delete students; reload to check persistence. With a Firebase test project configured, connect and verify remote CRUD.
+Manual acceptance: add a student, edit the name, reload and confirm the same identity/record, then delete the record and confirm its disappearance. Repeat in local mode to verify cloud/local separation.
 
-Expected result: the behavior described above works without a backend account in default mode. Dependency installation and the first Flutter web engine download need internet. See the root [validation record](../VALIDATION.md) for checks actually performed.
+The [backend tests](../firebase/README.md) include seven emulator security-rule tests and a live cloud CRUD/isolation smoke test. See [VALIDATION.md](../VALIDATION.md) for executed checks and remaining platform limits.
 
-## Real Cloud Firestore
+## Use Firebase emulators
 
-1. Create a Firebase test project and a Cloud Firestore database. Register a web app (for browser execution) or an Android app with package `com.shushant.mad_lab` (for Android execution).
-2. Copy the platform app's Firebase options from the console. Start with that platform's values, not placeholders:
+From the repository's `firebase` folder, run `npm ci`, then `npx firebase emulators:start --config ../firebase.json --project demo-madlab --only auth,firestore` (Node 20+ and Java 21 are required).
+
+In this experiment folder:
 
 ```sh
-flutter run -d chrome --dart-define=FIREBASE_PROJECT_ID=your-project --dart-define=FIREBASE_API_KEY=your-api-key --dart-define=FIREBASE_APP_ID=your-app-id --dart-define=FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+flutter run -d chrome --dart-define=FIREBASE_EMULATORS=true
+# Android emulator reaches the host through 10.0.2.2:
+flutter run -d <android-device-id> --dart-define=FIREBASE_EMULATORS=true --dart-define=FIREBASE_EMULATOR_HOST=10.0.2.2
 ```
 
-3. Press **Connect Firebase**. Initialization, a server read and the live `students` collection query must succeed before cloud mode is active. App writes use Firestore server timestamps. Add a student; confirm it in the Firebase console; delete it and confirm its removal.
-4. This lab deliberately has no authentication flow. Rules must authorize the requests to your disposable test database. Default locked rules will deny access; this is shown as an error, rather than a fake success. Do not expose real student records or loosen production rules. A deployed product needs Firebase Authentication and scoped rules before remote CRUD is appropriate.
+Ports: Authentication 9099, Firestore 8081, emulator UI 4000. The project ID is forced to `demo-madlab` in emulator mode, so these tests cannot write to the live project. HTTP emulator traffic is allowed only in the Android debug manifest. The release manifest uses the platform's HTTPS defaults.
 
-Cloud errors are visible. Failed writes keep the input; use **Switch to local demo** to return to persistent device records. Cloud and local records are never silently mixed. Stream subscriptions and text controllers are disposed. No real Firebase credentials were provided, so remote integration cannot be claimed as verified.
+## Reconfigure
+
+The following dart defines override the public defaults in main.dart: FIREBASE_PROJECT_ID, FIREBASE_API_KEY (web), FIREBASE_APP_ID (web), FIREBASE_ANDROID_API_KEY, FIREBASE_ANDROID_APP_ID, FIREBASE_MESSAGING_SENDER_ID and FIREBASE_AUTH_DOMAIN. Register both platform apps, enable anonymous sign-in, and deploy the supplied rules to any replacement project. Do not point this lab at an unrelated existing database.

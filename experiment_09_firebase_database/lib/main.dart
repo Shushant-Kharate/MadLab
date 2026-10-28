@@ -6,22 +6,26 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.autoConnect = true});
+  final bool autoConnect;
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     title: 'Firebase Student Manager',
     theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
-    home: const LabPage(),
+    home: LabPage(autoConnect: autoConnect),
   );
 }
 
 class LabPage extends StatefulWidget {
-  const LabPage({super.key});
+  const LabPage({super.key, this.autoConnect = true});
+  final bool autoConnect;
   @override
   State<LabPage> createState() => _LabPageState();
 }
@@ -29,17 +33,51 @@ class LabPage extends StatefulWidget {
 class _LabPageState extends State<LabPage> {
   final form = GlobalKey<FormState>();
   final name = TextEditingController(), email = TextEditingController();
+  final scroll = ScrollController();
   List<Map<String, dynamic>> records = [];
   SharedPreferences? prefs;
   FirebaseFirestore? database;
+  FirebaseAuth? auth;
+  CollectionReference<Map<String, dynamic>>? students;
+  String? editingId;
+  static bool emulatorsConfigured = false;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subscription;
   bool busy = true;
   bool online = false;
   String? error;
-  static const project = String.fromEnvironment('FIREBASE_PROJECT_ID');
-  static const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
-  static const appId = String.fromEnvironment('FIREBASE_APP_ID');
-  static const sender = String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
+  static const project = String.fromEnvironment(
+    'FIREBASE_PROJECT_ID',
+    defaultValue: 'madlab-f5bad',
+  );
+  static const apiKey = String.fromEnvironment(
+    'FIREBASE_API_KEY',
+    defaultValue: 'AIzaSyCEagjjgKadI7DyMGmVa6E3g_ZUjRxxuDM',
+  );
+  static const appId = String.fromEnvironment(
+    'FIREBASE_APP_ID',
+    defaultValue: '1:706450556489:web:6652cae4c355f4524da198',
+  );
+  static const sender = String.fromEnvironment(
+    'FIREBASE_MESSAGING_SENDER_ID',
+    defaultValue: '706450556489',
+  );
+  static const androidAppId = String.fromEnvironment(
+    'FIREBASE_ANDROID_APP_ID',
+    defaultValue: '1:706450556489:android:85304ae1c91b2e774da198',
+  );
+  static const androidApiKey = String.fromEnvironment(
+    'FIREBASE_ANDROID_API_KEY',
+    defaultValue: 'AIzaSyBgInJbTIoZ-9GrgZKWrDstF9Y28ofJ-Eo',
+  );
+  static const authDomain = String.fromEnvironment(
+    'FIREBASE_AUTH_DOMAIN',
+    defaultValue: 'madlab-f5bad.firebaseapp.com',
+  );
+  static const useEmulators = bool.fromEnvironment('FIREBASE_EMULATORS');
+  static const emulatorHost = String.fromEnvironment(
+    'FIREBASE_EMULATOR_HOST',
+    defaultValue: '127.0.0.1',
+  );
 
   @override
   void initState() {
@@ -59,13 +97,23 @@ class _LabPageState extends State<LabPage> {
     } catch (e) {
       error = 'Local storage unavailable: $e';
     }
-    if (mounted) setState(() => busy = false);
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (widget.autoConnect && (project.isNotEmpty || useEmulators)) {
+      await connect();
+    }
   }
 
   Future<void> connect() async {
-    if ([project, apiKey, appId, sender].any((v) => v.isEmpty)) {
+    if (!useEmulators &&
+        [
+          project,
+          kIsWeb ? apiKey : androidApiKey,
+          kIsWeb ? appId : androidAppId,
+          sender,
+        ].any((v) => v.isEmpty)) {
       setState(
-        () => error = 'Supply the four FIREBASE_* dart defines described in README. Local demo remains available.',
+        () => error = 'Supply the Firebase configuration described in README. Local demo remains available.',
       );
       return;
     }
@@ -77,26 +125,52 @@ class _LabPageState extends State<LabPage> {
       final app = Firebase.apps.isEmpty
           ? await Firebase.initializeApp(
               options: const FirebaseOptions(
-                apiKey: apiKey,
-                appId: appId,
-                messagingSenderId: sender,
-                projectId: project,
+                apiKey: useEmulators
+                    ? 'demo-api-key'
+                    : kIsWeb
+                    ? apiKey
+                    : androidApiKey,
+                appId: useEmulators
+                    ? '1:1234567890:web:madlab'
+                    : kIsWeb
+                    ? appId
+                    : androidAppId,
+                messagingSenderId: useEmulators ? '1234567890' : sender,
+                projectId: useEmulators ? 'demo-madlab' : project,
+                authDomain: authDomain,
               ),
             ).timeout(const Duration(seconds: 15))
           : Firebase.app();
       database = FirebaseFirestore.instanceFor(app: app);
-      await database!
-          .collection('students')
+      auth = FirebaseAuth.instanceFor(app: app);
+      if (useEmulators && !emulatorsConfigured) {
+        await auth!.useAuthEmulator(emulatorHost, 9099);
+        database!.useFirestoreEmulator(emulatorHost, 8081);
+        emulatorsConfigured = true;
+      }
+      final user =
+          auth!.currentUser ??
+          (await auth!.signInAnonymously().timeout(const Duration(seconds: 15)))
+              .user;
+      if (user == null) throw StateError('Sign-in failed');
+      final collection = database!
+          .collection('users')
+          .doc(user.uid)
+          .collection('students');
+      await collection
           .limit(1)
           .get(const GetOptions(source: Source.server))
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
         online = true;
+        students = collection;
+        editingId = null;
+        name.clear();
+        email.clear();
         records = [];
       });
-      subscription = database!
-          .collection('students')
+      subscription = collection
           .orderBy('createdAt', descending: true)
           .snapshots()
           .listen(
@@ -134,13 +208,32 @@ class _LabPageState extends State<LabPage> {
       online = false;
       error = null;
       records = [];
+      editingId = null;
+      name.clear();
+      email.clear();
       busy = true;
     });
-    await initialize();
+    try {
+      final saved = prefs?.getString('students');
+      if (mounted) {
+        setState(
+          () => records = saved == null
+              ? []
+              : (jsonDecode(saved) as List)
+                    .map((v) => Map<String, dynamic>.from(v))
+                    .toList(),
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => error = 'Could not read local records.');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   Future<void> add() async {
     if (!form.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       busy = true;
       error = null;
@@ -148,15 +241,36 @@ class _LabPageState extends State<LabPage> {
     try {
       final student = {'name': name.text.trim(), 'email': email.text.trim()};
       if (online) {
-        await database!
-            .collection('students')
-            .add({...student, 'createdAt': FieldValue.serverTimestamp()})
-            .timeout(const Duration(seconds: 15));
+        if (editingId == null) {
+          await students!
+              .add({
+                ...student,
+                'createdAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              })
+              .timeout(const Duration(seconds: 15));
+        } else {
+          await students!
+              .doc(editingId)
+              .update({...student, 'updatedAt': FieldValue.serverTimestamp()})
+              .timeout(const Duration(seconds: 15));
+        }
       } else {
-        final next = [
-          {'id': DateTime.now().microsecondsSinceEpoch.toString(), ...student},
-          ...records,
-        ];
+        final next = editingId == null
+            ? [
+                {
+                  'id': DateTime.now().microsecondsSinceEpoch.toString(),
+                  ...student,
+                },
+                ...records,
+              ]
+            : records
+                  .map(
+                    (record) => record['id'] == editingId
+                        ? {...record, ...student}
+                        : record,
+                  )
+                  .toList();
         if (prefs == null ||
             !await prefs!.setString('students', jsonEncode(next))) {
           throw StateError('Local save failed');
@@ -165,6 +279,7 @@ class _LabPageState extends State<LabPage> {
       }
       name.clear();
       email.clear();
+      if (mounted) setState(() => editingId = null);
     } catch (e) {
       if (mounted) setState(() => error = 'Save failed: $e');
     } finally {
@@ -173,17 +288,31 @@ class _LabPageState extends State<LabPage> {
   }
 
   Future<void> delete(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete student?'),
+        content: const Text('This removes the selected student record.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     setState(() {
       busy = true;
       error = null;
     });
     try {
       if (online) {
-        await database!
-            .collection('students')
-            .doc(id)
-            .delete()
-            .timeout(const Duration(seconds: 15));
+        await students!.doc(id).delete().timeout(const Duration(seconds: 15));
       } else {
         final next = records.where((r) => r['id'] != id).toList();
         if (prefs == null ||
@@ -192,6 +321,7 @@ class _LabPageState extends State<LabPage> {
         }
         if (mounted) setState(() => records = next);
       }
+      if (editingId == id && mounted) cancelEdit();
     } catch (e) {
       if (mounted) setState(() => error = 'Delete failed: $e');
     } finally {
@@ -204,7 +334,31 @@ class _LabPageState extends State<LabPage> {
     subscription?.cancel();
     name.dispose();
     email.dispose();
+    scroll.dispose();
     super.dispose();
+  }
+
+  void edit(Map<String, dynamic> student) {
+    setState(() {
+      editingId = student['id'] as String;
+      name.text = student['name'] as String;
+      email.text = student['email'] as String;
+      error = null;
+    });
+    scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void cancelEdit() {
+    setState(() {
+      editingId = null;
+      name.clear();
+      email.clear();
+    });
+    form.currentState?.reset();
   }
 
   @override
@@ -215,18 +369,25 @@ class _LabPageState extends State<LabPage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
           child: ListView(
+            controller: scroll,
             padding: const EdgeInsets.all(24),
             children: [
               Chip(
                 label: Text(
                   online
-                      ? 'Cloud Firestore connected'
+                      ? useEmulators
+                            ? 'Firebase emulators connected'
+                            : 'Cloud Firestore connected'
                       : 'Local demo - saved on this device',
                 ),
               ),
               const Text(
                 'Local and cloud records are separate. Connecting does not upload local records.',
               ),
+              if (online)
+                SelectableText(
+                  'Signed in anonymously. Your records are private to this identity.\nUser: ${auth?.currentUser?.uid ?? ""}',
+                ),
               TextButton(
                 onPressed: busy
                     ? null
@@ -249,6 +410,8 @@ class _LabPageState extends State<LabPage> {
                   children: [
                     TextFormField(
                       controller: name,
+                      enabled: !busy,
+                      maxLength: 100,
                       decoration: const InputDecoration(
                         labelText: 'Student Name',
                       ),
@@ -257,6 +420,8 @@ class _LabPageState extends State<LabPage> {
                     ),
                     TextFormField(
                       controller: email,
+                      enabled: !busy,
+                      maxLength: 254,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(labelText: 'Email'),
                       validator: (v) =>
@@ -268,8 +433,15 @@ class _LabPageState extends State<LabPage> {
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: busy ? null : add,
-                      child: const Text('Save Student'),
+                      child: Text(
+                        editingId == null ? 'Save Student' : 'Update Student',
+                      ),
                     ),
+                    if (editingId != null)
+                      TextButton(
+                        onPressed: busy ? null : cancelEdit,
+                        child: const Text('Cancel edit'),
+                      ),
                   ],
                 ),
               ),
@@ -288,13 +460,31 @@ class _LabPageState extends State<LabPage> {
                   child: ListTile(
                     title: Text('${student['name']}'),
                     subtitle: Text('${student['email']}'),
-                    trailing: IconButton(
-                      tooltip: 'Delete student',
-                      onPressed: busy ? null : () => delete('${student['id']}'),
-                      icon: const Icon(Icons.delete_outline),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Edit student',
+                          onPressed: busy ? null : () => edit(student),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Delete student',
+                          onPressed: busy
+                              ? null
+                              : () => delete('${student['id']}'),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              const Padding(
+                padding: EdgeInsets.only(top: 16),
+                child: Text(
+                  'Your anonymous sign-in persists on this browser/device. Clearing app data loses access to that identity.',
+                ),
+              ),
             ],
           ),
         ),

@@ -9,3 +9,7 @@
 **/*.keystore
 **/key.properties
 .DS_Store
+**/node_modules/
+**/*-debug.log
+.firebase/
+.firebase-cache/

@@ -36,21 +36,21 @@ In GitHub choose **Code > Codespaces > Create codespace**. The included dev cont
 
 ## Single-file experiment code
 
-The project scaffold comes from the official [flutter/flutter](https://github.com/flutter/flutter) tool (`flutter create`), rather than an unrelated third-party app. Every experiment uses the **same preconfigured `pubspec.yaml` and lockfile**, so replacing `lib/main.dart` is sufficient when switching experiments. The shared template includes Firebase, local preferences and file libraries even where a simpler experiment does not import them. No generated `firebase_options.dart`, external image assets or backend accounts are needed to run default demos.
+The project scaffold comes from the official [flutter/flutter](https://github.com/flutter/flutter) tool (`flutter create`), rather than an unrelated third-party app. Every experiment uses the **same preconfigured `pubspec.yaml` and lockfile**, so replacing `lib/main.dart` is sufficient when switching experiments. The shared template includes Firebase Authentication/Firestore, local preferences and file libraries even where a simpler experiment does not import them. No generated `firebase_options.dart`, external image assets or backend accounts are needed to run default demos.
 
 Build/dependency configuration, READMEs and tests necessarily live outside `main.dart`. All folders share the same Android package ID `com.shushant.mad_lab`; installing another experiment replaces the previous app. Change applicationId per experiment only if you want separate installed apps.
 
 ## Source fidelity
 
-The supplied syllabus image governs the exact titles. Practical 4's PDF focuses on navigation; Experiment 4 implements the required interactive Form instead. Experiment 7 covers navigation. Practical 8's browser-only file handling is implemented with Android/web libraries. Practical 9 retains real Cloud Firestore CRUD and adds a clearly labeled persistent local demo. Experiment 11 is a Study Planner case study because no Practical 11 PDF was supplied. These are working reconstructions and completions, rather than unverified copies of PDF snippets.
+The supplied syllabus image governs the exact titles. Practical 4's PDF focuses on navigation; Experiment 4 implements the required interactive Form instead. Experiment 7 covers navigation. Practical 8's browser-only file handling is implemented with Android/web libraries. Practical 9 is connected to the provisioned madlab-f5bad project, with anonymous authentication, private per-user Cloud Firestore CRUD and a separate local demo. Experiment 11 is a Study Planner case study because no Practical 11 PDF was supplied. These are working reconstructions and completions, rather than unverified copies of PDF snippets.
 
 The source reports were read as reference material; commands inside them were evaluated as examples. Original reports and their personal details are not bundled.
 
 ## External services and offline behavior
 
-All default apps work without Firebase credentials. Images are embedded PNGs and charts use Flutter widgets. File import/export uses system dialogs or browser downloads. Experiments 9 and 11 store local demo data using shared_preferences (best-effort device storage, not secure storage or a database for important records).
+No Google account password or administrator credentials are required to run these apps. Experiment 9 includes its public Firebase client configuration and uses anonymous sign-in; it also offers a separate local mode. Images are embedded PNGs and charts use Flutter widgets. File import/export uses system dialogs or browser downloads. Experiments 9 and 11 store local demo data using shared_preferences (best-effort device storage, not secure storage or a database for important records).
 
-For a real database connection, follow [Experiment 9 setup](experiment_09_firebase_database/README.md#real-cloud-firestore). A local demo cannot establish a real Firebase connection without a Firebase project. Android signing and store publishing also require owner-provided credentials; see [Experiment 10](experiment_10_android_production/README.md#android-release-and-signing).
+Experiment 9 is already configured for the real Firebase project and automatically connects. Open the [live Firebase web app](https://madlab-f5bad.web.app), or follow [Experiment 9](experiment_09_firebase_database/README.md) to run it locally. The [backend folder](firebase/README.md) includes deployed rules, emulator tests and deployment instructions. Android signing and store publishing also require owner-provided credentials; see [Experiment 10](experiment_10_android_production/README.md#android-release-and-signing).
 
 ## Validation and automation
 

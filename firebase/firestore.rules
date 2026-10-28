@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    function validStudent() {
+      let value = request.resource.data;
+      return value.keys().hasAll(['name', 'email', 'createdAt', 'updatedAt'])
+        && value.keys().hasOnly(['name', 'email', 'createdAt', 'updatedAt'])
+        && value.name is string && value.name.size() > 0 && value.name.size() <= 100
+        && value.name.matches('.*\\S.*')
+        && value.email is string && value.email.size() <= 254
+        && value.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && value.createdAt is timestamp && value.updatedAt is timestamp
+        && value.updatedAt == request.time;
+    }
+    match /users/{userId}/students/{studentId} {
+      allow read, delete: if owner(userId);
+      allow create: if owner(userId) && validStudent() && request.resource.data.createdAt == request.time;
+      allow update: if owner(userId) && validStudent()
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
