@@ -1,0 +1,41 @@
+# Experiment 11: Mini project: Student Study Planner
+
+**Exact syllabus title:** Implementation of Mini Project on selected case study.
+
+## Aim and theory
+
+Case study: students track Flutter/Dart/Android study tasks. Validated task creation, completion, filters, details navigation, delete, progress and local persistence.
+
+Flutter composes widgets to describe the UI. StatefulWidget and setState rebuild the UI when input changes; the relevant layout, input, navigation or storage API is demonstrated in `lib/main.dart`.
+
+## Run independently
+
+Open **this folder**, not the repository root, in VS Code or Android Studio.
+
+```sh
+flutter pub get
+flutter run -d chrome
+# Android: start an emulator or connect a USB-debugging device
+flutter devices
+flutter run -d <android-device-id>
+```
+
+In Codespaces use `flutter run -d web-server --web-hostname=0.0.0.0 --web-port=8080`, then open forwarded port 8080.
+
+## Implementation
+
+All experiment application logic is in [lib/main.dart](lib/main.dart). Android and web folders are the official Flutter scaffold, with shared dependencies preconfigured. The same `main.dart` can be copied into any other experiment folder here.
+
+The screenshot includes Experiment 11 but no PDF was supplied for it. This self-contained case study implements that title using concepts from experiments 2-10.
+
+## Verify
+
+```sh
+flutter analyze
+flutter test
+flutter build web --release
+```
+
+Manual acceptance: Create two tasks, complete one, filter the list, inspect details, restart, and delete a task.
+
+Expected result: the behavior described above works without a backend account in default mode. Dependency installation and the first Flutter web engine download need internet. See the root [validation record](../VALIDATION.md) for checks actually performed.

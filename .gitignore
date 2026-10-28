@@ -1,0 +1,11 @@
+**/.dart_tool/
+**/build/
+**/.idea/
+**/*.iml
+**/local.properties
+**/.flutter-plugins*
+**/ephemeral/
+**/*.jks
+**/*.keystore
+**/key.properties
+.DS_Store

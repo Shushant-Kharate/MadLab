@@ -1,0 +1,54 @@
+name: Flutter lab verification
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  experiments:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        experiment: ["experiment_01_environment", "experiment_02_hello_world", "experiment_03_common_widgets", "experiment_04_interactive_form", "experiment_05_layout_widgets", "experiment_06_icons_images_charts", "experiment_07_navigation_gestures", "experiment_08_libraries_files", "experiment_09_firebase_database", "experiment_10_android_production", "experiment_11_mini_project"]
+    defaults:
+      run:
+        working-directory: ${{ matrix.experiment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release
+  android-lab-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiment_10_android_production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - run: flutter build appbundle --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-lab-test-builds-debug-signed
+          path: |
+            experiment_10_android_production/build/app/outputs/flutter-apk/app-release.apk
+            experiment_10_android_production/build/app/outputs/bundle/release/app-release.aab
