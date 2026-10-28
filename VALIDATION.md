@@ -23,3 +23,9 @@ Browser verification: opened compiled Hello World and file-handling releases. In
 Corrections from testing: expanded the registration dropdown to prevent narrow-screen overflow; adjusted off-screen chart testing to scroll the list; allowed the single-tap timeout when double-tap detection is present; resolved analyzer lint findings.
 
 Not verified locally: Android APK/AAB compilation (no Android SDK available), Android native file dialogs, a physical-device install, live Cloud Firestore CRUD (no Firebase project credentials), and Play Store publishing. GitHub Actions is configured to compile an Android lab APK/AAB and all web experiments; its results are separate evidence. Release builds without upload signing variables use the debug key and are for lab testing only.
+
+## GitHub Actions result
+
+The first two workflow runs were rejected before any runner steps executed. GitHub check annotation: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the Billing & plans section in your settings."
+
+This is an account-level runner availability restriction, not a compiler/test failure. [Run evidence](https://github.com/Shushant-Kharate/MadLab/actions/runs/40735761711). After resolving the GitHub account restriction, rerun the workflow to obtain the Android build artifacts. No payment or account billing settings were changed.
