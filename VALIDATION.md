@@ -12,9 +12,9 @@ Date: 28 October 2026 (Asia/Kolkata). Toolchain: Flutter 3.47.6 / Dart 3.13.5, W
 | experiment_06_icons_images_charts | PASS | PASS | PASS |
 | experiment_07_navigation_gestures | PASS | PASS | PASS |
 | experiment_08_libraries_files | PASS | PASS | PASS |
-| experiment_09_firebase_database | rerunning | PASS | PASS |
+| experiment_09_firebase_database | PASS | PASS | PASS |
 | experiment_10_android_production | PASS | PASS | PASS |
-| experiment_11_mini_project | rerunning | PASS | PASS |
+| experiment_11_mini_project | PASS | PASS | PASS |
 
 Each test suite has a responsive smoke test at 360 px and 1200 px plus an experiment behavior test: 22 tests in total. Tests use mocked shared_preferences storage; they do not prove native plugin execution.
 
